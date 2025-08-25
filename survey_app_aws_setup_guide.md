@@ -5,39 +5,84 @@
 ### 3.1 Amazon Cognito User Pool Configuration
 
 #### Prerequisites
-- AWS CLI installed and configured with appropriate credentials
+- AWS account with appropriate permissions
+- AWS CLI installed and configured (for fallback operations)
 - AWS SAM CLI installed for serverless deployment
-- Appropriate AWS account with necessary permissions
 
-#### Step-by-Step Cognito Setup
+#### Step-by-Step Cognito Setup (AWS Management Console)
 
 1. **Create Cognito User Pool**
-   ```bash
-   # Using AWS CLI
-   aws cognito-idp create-user-pool \
-     --pool-name "SurveyAppUserPool" \
-     --policies "PasswordPolicy={MinimumLength=8,RequireUppercase=true,RequireLowercase=true,RequireNumbers=true,RequireSymbols=true}" \
-     --auto-verified-attributes email \
-     --username-attributes email
-   ```
+   - Go to [AWS Cognito Console](https://console.aws.amazon.com/cognito/)
+   - Click "Create user pool"
+   - Choose "Cognito user pool" and click "Next"
+   - **Step 1: Configure sign-in experience**
+     - User name requirements: Select "Allow email addresses"
+     - Cognito-assisted sign-in and sign-up: Select "Cognito user pool"
+     - Click "Next"
+   - **Step 2: Configure security requirements**
+     - Password policy: Select "Cognito defaults" or customize:
+       - Minimum length: 8
+       - Require uppercase letters: ✓
+       - Require lowercase letters: ✓
+       - Require numbers: ✓
+       - Require special characters: ✓
+     - Multi-factor authentication: Choose "No MFA" for now
+     - User account recovery: Select "Enable self-service account recovery"
+     - Click "Next"
+   - **Step 3: Configure sign-up experience**
+     - Self-service sign-up: Select "Enable self-service sign-up"
+     - Cognito-assisted verification and confirmation: Select "Cognito assisted verification and confirmation"
+     - Attribute verification and user account confirmation: Select "Email"
+     - Click "Next"
+   - **Step 4: Configure message delivery**
+     - Email provider: Select "Send email with Cognito"
+     - From email address: Select "Use Cognito default email address"
+     - Click "Next"
+   - **Step 5: Integrate your app**
+     - User pool name: Enter "SurveyAppUserPool"
+     - Initial app client: Select "Add an app client to get started"
+     - App client name: Enter "SurveyAppClient"
+     - Client secret: Select "Don't generate a client secret"
+     - Authentication flows: Select all three:
+       - ✓ ALLOW_USER_PASSWORD_AUTH
+       - ✓ ALLOW_REFRESH_TOKEN_AUTH
+       - ✓ ALLOW_USER_SRP_AUTH
+     - Click "Next"
+   - **Step 6: Review and create**
+     - Review your settings and click "Create user pool"
 
-2. **Create User Pool Client**
-   ```bash
-   # Replace USER_POOL_ID with the ID from step 1
-   aws cognito-idp create-user-pool-client \
-     --user-pool-id "USER_POOL_ID" \
-     --client-name "SurveyAppClient" \
-     --no-generate-secret \
-     --explicit-auth-flows "ALLOW_USER_PASSWORD_AUTH" "ALLOW_REFRESH_TOKEN_AUTH" "ALLOW_USER_SRP_AUTH"
-   ```
+2. **Configure App Integration (if needed)**
+   - In your user pool, go to "App integration" tab
+   - Under "App client list", click on your app client
+   - Scroll to "Hosted UI" section
+   - Callback URLs: Add `http://localhost:3000/auth/callback`
+   - Sign-out URLs: Add `http://localhost:3000`
+   - Save changes
 
-3. **Configure App Integration**
-   - Set callback URLs: `http://localhost:3000/auth/callback`
-   - Set sign-out URLs: `http://localhost:3000`
-   - Enable OAuth flows: Authorization code grant, Implicit grant
+3. **Get User Pool Details**
+   - Note down your **User Pool ID** (format: `us-east-1_xxxxxxxxx`)
+   - Note down your **App Client ID** (format: `xxxxxxxxxxxxxxxxxxxxxxxxxx`)
+   - Note down your **AWS Region**
+
+#### Alternative: AWS CLI Setup (if console not preferred)
+```bash
+# Create User Pool
+aws cognito-idp create-user-pool \
+  --pool-name "SurveyAppUserPool" \
+  --policies "PasswordPolicy={MinimumLength=8,RequireUppercase=true,RequireLowercase=true,RequireNumbers=true,RequireSymbols=true}" \
+  --auto-verified-attributes email \
+  --username-attributes email
+
+# Create User Pool Client (replace USER_POOL_ID with the ID from step 1)
+aws cognito-idp create-user-pool-client \
+  --user-pool-id "USER_POOL_ID" \
+  --client-name "SurveyAppClient" \
+  --no-generate-secret \
+  --explicit-auth-flows "ALLOW_USER_PASSWORD_AUTH" "ALLOW_REFRESH_TOKEN_AUTH" "ALLOW_USER_SRP_AUTH"
+```
 
 #### Environment Variables
-Create `.env.local` file:
+Create `.env.local` file in your project root:
 ```env
 REACT_APP_COGNITO_USER_POOL_ID=your_user_pool_id
 REACT_APP_COGNITO_CLIENT_ID=your_client_id
@@ -46,8 +91,86 @@ REACT_APP_COGNITO_REGION=your_aws_region
 
 ### 3.2 DynamoDB Table Setup
 
-#### Survey Table
+#### Survey Table (AWS Management Console)
+1. Go to [AWS DynamoDB Console](https://console.aws.amazon.com/dynamodb/)
+2. Click "Create table"
+3. **Basic settings:**
+   - Table name: `SurveyTable`
+   - Partition key: `SurveyID` (String)
+   - Sort key: Leave empty
+   - Click "Next"
+4. **Settings:**
+   - Choose "Customize settings"
+   - Read/write capacity: Select "On-demand (pay per request)"
+   - Click "Next"
+5. **Indexes:**
+   - Click "Add index"
+   - Partition key: `AdminUserID` (String)
+   - Index name: `AdminUserIDIndex`
+   - Projection type: Select "All"
+   - Click "Create index"
+6. Click "Next" and then "Create table"
+
+#### Questions Table (AWS Management Console)
+1. Click "Create table"
+2. **Basic settings:**
+   - Table name: `QuestionsTable`
+   - Partition key: `QuestionID` (String)
+   - Sort key: Leave empty
+   - Click "Next"
+3. **Settings:**
+   - Choose "Customize settings"
+   - Read/write capacity: Select "On-demand (pay per request)"
+   - Click "Next"
+4. **Indexes:**
+   - Click "Add index"
+   - Partition key: `SurveyID` (String)
+   - Index name: `SurveyIDIndex`
+   - Projection type: Select "All"
+   - Click "Create index"
+5. Click "Next" and then "Create table"
+
+#### Options Table (AWS Management Console)
+1. Click "Create table"
+2. **Basic settings:**
+   - Table name: `OptionsTable`
+   - Partition key: `OptionID` (String)
+   - Sort key: Leave empty
+   - Click "Next"
+3. **Settings:**
+   - Choose "Customize settings"
+   - Read/write capacity: Select "On-demand (pay per request)"
+   - Click "Next"
+4. **Indexes:**
+   - Click "Add index"
+   - Partition key: `QuestionID` (String)
+   - Index name: `QuestionIDIndex`
+   - Projection type: Select "All"
+   - Click "Create index"
+5. Click "Next" and then "Create table"
+
+#### Responses Table (AWS Management Console)
+1. Click "Create table"
+2. **Basic settings:**
+   - Table name: `ResponsesTable`
+   - Partition key: `ResponseID` (String)
+   - Sort key: Leave empty
+   - Click "Next"
+3. **Settings:**
+   - Choose "Customize settings"
+   - Read/write capacity: Select "On-demand (pay per request)"
+   - Click "Next"
+4. **Indexes:**
+   - Click "Add index"
+   - Partition key: `SurveyID` (String)
+   - Index name: `SurveyIDIndex`
+   - Projection type: Select "All"
+   - Click "Create index"
+5. Click "Next" and then "Create table"
+
+#### Alternative: AWS CLI Setup (if console not preferred)
 ```bash
+# Survey Table
 aws dynamodb create-table \
   --table-name "SurveyTable" \
   --attribute-definitions \
@@ -58,10 +181,8 @@ aws dynamodb create-table \
   --global-secondary-indexes \
     IndexName=AdminUserIDIndex,KeySchema=[{AttributeName=AdminUserID,KeyType=HASH}],Projection={ProjectionType=ALL} \
   --billing-mode PAY_PER_REQUEST
-```
 
-#### Questions Table
-```bash
+# Questions Table
 aws dynamodb create-table \
   --table-name "QuestionsTable" \
   --attribute-definitions \
@@ -72,10 +193,8 @@ aws dynamodb create-table \
   --global-secondary-indexes \
     IndexName=SurveyIDIndex,KeySchema=[{AttributeName=SurveyID,KeyType=HASH}],Projection={ProjectionType=ALL} \
   --billing-mode PAY_PER_REQUEST
-```
 
-#### Options Table
-```bash
+# Options Table
 aws dynamodb create-table \
   --table-name "OptionsTable" \
   --attribute-definitions \
@@ -86,10 +205,8 @@ aws dynamodb create-table \
   --global-secondary-indexes \
     IndexName=QuestionIDIndex,KeySchema=[{AttributeName=QuestionID,KeyType=HASH}],Projection={ProjectionType=ALL} \
   --billing-mode PAY_PER_REQUEST
-```
 
-#### Responses Table
-```bash
+# Responses Table
 aws dynamodb create-table \
   --table-name "ResponsesTable" \
   --attribute-definitions \
@@ -104,8 +221,144 @@ aws dynamodb create-table \
 
 ### 3.3 Lambda Functions Setup
 
-#### Create SAM Template
-Create `template.yaml`:
+#### Create Lambda Functions (AWS Management Console)
+
+1. **Go to AWS Lambda Console**
+   - Navigate to [AWS Lambda Console](https://console.aws.amazon.com/lambda/)
+   - Click "Create function"
+
+2. **Create Survey Function**
+   - Choose "Author from scratch"
+   - Function name: `CreateSurveyFunction`
+   - Runtime: Select "Node.js 18.x"
+   - Architecture: Select "x86_64"
+   - Click "Create function"
+   - In the function code editor, replace the default code with:
+   ```javascript
+   const AWS = require('aws-sdk');
+   const dynamodb = new AWS.DynamoDB.DocumentClient();
+   
+   exports.handler = async (event) => {
+       try {
+           const surveyData = JSON.parse(event.body);
+           
+           // Generate unique ID
+           const surveyId = 'survey_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+           
+           const survey = {
+               SurveyID: surveyId,
+               Name: surveyData.name,
+               Description: surveyData.description || '',
+               CreatedAt: new Date().toISOString(),
+               AdminUserID: surveyData.adminUserId,
+               Status: 'draft',
+               ShareableLink: `https://yourdomain.com/survey/${surveyId}`
+           };
+           
+           await dynamodb.put({
+               TableName: process.env.SURVEY_TABLE,
+               Item: survey
+           }).promise();
+           
+           return {
+               statusCode: 200,
+               headers: {
+                   'Content-Type': 'application/json',
+                   'Access-Control-Allow-Origin': '*'
+               },
+               body: JSON.stringify(survey)
+           };
+       } catch (error) {
+           return {
+               statusCode: 500,
+               headers: {
+                   'Content-Type': 'application/json',
+                   'Access-Control-Allow-Origin': '*'
+               },
+               body: JSON.stringify({ error: error.message })
+           };
+       }
+   };
+   ```
+   - Click "Deploy"
+
+3. **Create Get Surveys Function**
+   - Click "Create function" again
+   - Choose "Author from scratch"
+   - Function name: `GetSurveysFunction`
+   - Runtime: Select "Node.js 18.x"
+   - Architecture: Select "x86_64"
+   - Click "Create function"
+   - In the function code editor, replace the default code with:
+   ```javascript
+   const AWS = require('aws-sdk');
+   const dynamodb = new AWS.DynamoDB.DocumentClient();
+   
+   exports.handler = async (event) => {
+       try {
+           const adminUserId = event.queryStringParameters?.adminUserId;
+           
+           if (!adminUserId) {
+               return {
+                   statusCode: 400,
+                   headers: {
+                       'Content-Type': 'application/json',
+                       'Access-Control-Allow-Origin': '*'
+                   },
+                   body: JSON.stringify({ error: 'adminUserId is required' })
+               };
+           }
+           
+           const params = {
+               TableName: process.env.SURVEY_TABLE,
+               IndexName: 'AdminUserIDIndex',
+               KeyConditionExpression: 'AdminUserID = :adminUserId',
+               ExpressionAttributeValues: {
+                   ':adminUserId': adminUserId
+               }
+           };
+           
+           const result = await dynamodb.query(params).promise();
+           
+           return {
+               statusCode: 200,
+               headers: {
+                   'Content-Type': 'application/json',
+                   'Access-Control-Allow-Origin': '*'
+               },
+               body: JSON.stringify(result.Items)
+           };
+       } catch (error) {
+           return {
+               statusCode: 500,
+               headers: {
+                   'Content-Type': 'application/json',
+                   'Access-Control-Allow-Origin': '*'
+               },
+               body: JSON.stringify({ error: error.message })
+           };
+       }
+   };
+   ```
+   - Click "Deploy"
+
+4. **Configure Environment Variables**
+   - For each function, go to the "Configuration" tab
+   - Click "Environment variables"
+   - Add the following variables:
+     - `SURVEY_TABLE`: `SurveyTable`
+     - `QUESTIONS_TABLE`: `QuestionsTable`
+     - `OPTIONS_TABLE`: `OptionsTable`
+     - `RESPONSES_TABLE`: `ResponsesTable`
+
+5. **Set Function Timeout**
+   - Go to "Configuration" → "General configuration"
+   - Click "Edit"
+   - Set timeout to 30 seconds
+   - Click "Save"
+
+#### Alternative: SAM Template Deployment
+If you prefer using SAM, create `template.yaml`:
 ```yaml
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
@@ -148,55 +401,6 @@ Resources:
             Path: /surveys
             Method: get
 
-  # DynamoDB Tables (if not created separately)
-  SurveyTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: SurveyTable
-      AttributeDefinitions:
-        - AttributeName: SurveyID
-          AttributeType: S
-      KeySchema:
-        - AttributeName: SurveyID
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-
-  QuestionsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: QuestionsTable
-      AttributeDefinitions:
-        - AttributeName: QuestionID
-          AttributeType: S
-      KeySchema:
-        - AttributeName: QuestionID
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-
-  OptionsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: OptionsTable
-      AttributeDefinitions:
-        - AttributeName: OptionID
-          AttributeType: S
-      KeySchema:
-        - AttributeName: OptionID
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-
-  ResponsesTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: ResponsesTable
-      AttributeDefinitions:
-        - AttributeName: ResponseID
-          AttributeType: S
-      KeySchema:
-        - AttributeName: ResponseID
-          KeyType: HASH
-      BillingMode: PAY_PER_REQUEST
-
 Outputs:
   ApiGatewayApi:
     Description: API Gateway endpoint URL
@@ -209,7 +413,7 @@ Outputs:
     Value: !GetAtt GetSurveysFunction.Arn
 ```
 
-#### Deploy with SAM
+Deploy with SAM:
 ```bash
 # Build the application
 sam build
@@ -218,32 +422,135 @@ sam build
 sam deploy --guided
 ```
 
-### 3.4 IAM Roles and Policies
+### 3.4 API Gateway Setup (AWS Management Console)
 
-#### Lambda Execution Role
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "dynamodb:GetItem",
-        "dynamodb:PutItem",
-        "dynamodb:UpdateItem",
-        "dynamodb:DeleteItem",
-        "dynamodb:Query",
-        "dynamodb:Scan"
-      ],
-      "Resource": [
-        "arn:aws:dynamodb:*:*:table/SurveyTable",
-        "arn:aws:dynamodb:*:*:table/QuestionsTable",
-        "arn:aws:dynamodb:*:*:table/OptionsTable",
-        "arn:aws:dynamodb:*:*:table/ResponsesTable"
-      ]
-    }
-  ]
-}
+1. **Go to API Gateway Console**
+   - Navigate to [AWS API Gateway Console](https://console.aws.amazon.com/apigateway/)
+   - Click "Create API"
+   - Choose "REST API" and click "Build"
+
+2. **Configure API**
+   - API name: `SurveyAppAPI`
+   - Description: `API for Survey Creation Application`
+   - Endpoint type: Select "Regional"
+   - Click "Create API"
+
+3. **Create Resources and Methods**
+   - Click "Actions" → "Create Resource"
+   - Resource Name: `surveys`
+   - Click "Create Resource"
+   - Click "Actions" → "Create Method"
+   - Select "POST" and click the checkmark
+   - Integration type: Select "Lambda Function"
+   - Lambda Function: Select `CreateSurveyFunction`
+   - Click "Save"
+   - Click "OK" to grant permissions
+
+4. **Create GET Method**
+   - Click "Actions" → "Create Method"
+   - Select "GET" and click the checkmark
+   - Integration type: Select "Lambda Function"
+   - Lambda Function: Select `GetSurveysFunction`
+   - Click "Save"
+   - Click "OK" to grant permissions
+
+5. **Enable CORS**
+   - Select the `/surveys` resource
+   - Click "Actions" → "Enable CORS"
+   - Access-Control-Allow-Origin: Enter `*`
+   - Access-Control-Allow-Headers: Enter `Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token`
+   - Access-Control-Allow-Methods: Select "GET, POST, OPTIONS"
+   - Click "Enable CORS and replace existing CORS headers"
+
+6. **Deploy API**
+   - Click "Actions" → "Deploy API"
+   - Deployment stage: Select "New Stage"
+   - Stage name: Enter `prod`
+   - Click "Deploy"
+   - Note the "Invoke URL" (you'll need this for your environment variables)
+
+### 3.5 IAM Roles and Policies
+
+#### Lambda Execution Role (AWS Management Console)
+
+1. **Go to IAM Console**
+   - Navigate to [AWS IAM Console](https://console.aws.amazon.com/iam/)
+   - Click "Roles" in the left sidebar
+   - Click "Create role"
+
+2. **Create Role**
+   - Trusted entity: Select "AWS service"
+   - Use case: Select "Lambda"
+   - Click "Next"
+
+3. **Attach Policies**
+   - Search for and select "AWSLambdaBasicExecutionRole"
+   - Click "Next"
+
+4. **Create Custom Policy**
+   - Click "Create policy"
+   - Go to "JSON" tab
+   - Replace the content with:
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "dynamodb:GetItem",
+           "dynamodb:PutItem",
+           "dynamodb:UpdateItem",
+           "dynamodb:DeleteItem",
+           "dynamodb:Query",
+           "dynamodb:Scan"
+         ],
+         "Resource": [
+           "arn:aws:dynamodb:*:*:table/SurveyTable",
+           "arn:aws:dynamodb:*:*:table/QuestionsTable",
+           "arn:aws:dynamodb:*:*:table/OptionsTable",
+           "arn:aws:dynamodb:*:*:table/ResponsesTable"
+         ]
+       }
+     ]
+   }
+   ```
+   - Click "Next: Tags"
+   - Click "Next: Review"
+   - Policy name: Enter `SurveyAppDynamoDBPolicy`
+   - Click "Create policy"
+
+5. **Attach Custom Policy to Role**
+   - Go back to role creation
+   - Search for and select your custom policy
+   - Click "Next"
+   - Role name: Enter `SurveyAppLambdaRole`
+   - Click "Create role"
+
+6. **Attach Role to Lambda Functions**
+   - Go back to Lambda console
+   - For each function, go to "Configuration" → "Permissions"
+   - Click on the execution role
+   - Click "Attach policies"
+   - Search for and select your custom policy
+   - Click "Attach policy"
+
+#### Alternative: AWS CLI IAM Setup
+```bash
+# Create the policy
+aws iam create-policy \
+  --policy-name SurveyAppDynamoDBPolicy \
+  --policy-document file://dynamodb-policy.json
+
+# Create the role
+aws iam create-role \
+  --role-name SurveyAppLambdaRole \
+  --assume-role-policy-document file://trust-policy.json
+
+# Attach the policy to the role
+aws iam attach-role-policy \
+  --role-name SurveyAppLambdaRole \
+  --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/SurveyAppDynamoDBPolicy
 ```
 
 ## Phase 1, Step 4: Project Structure Organization
@@ -638,4 +945,4 @@ REACT_APP_ENVIRONMENT=development
    - Set up protected routes
    - Implement session management
 
-This setup provides a solid foundation for building the survey application with proper separation of concerns, type safety, and scalable architecture.
+This setup provides a solid foundation for building the survey application with proper separation of concerns, type safety, and scalable architecture. The AWS Management Console approach makes it easier to visualize and manage your resources, while the CLI options remain available for automation and advanced users.
